@@ -26,6 +26,14 @@ function JiraConnectionTab() {
   const { jiraConfig, isConfigured } = useConfigStore();
   const { mutate: validate, isPending } = useValidateConnection();
 
+  React.useEffect(() => {
+    form.setFieldsValue({
+      baseUrl: jiraConfig?.baseUrl || '',
+      email: jiraConfig?.email || '',
+      apiToken: jiraConfig?.apiToken || '',
+    });
+  }, [jiraConfig, form]);
+
   const handleSubmit = (values: any) => {
     validate({
       baseUrl: values.baseUrl.replace(/\/$/, ''),
@@ -56,15 +64,15 @@ function JiraConnectionTab() {
 
       <div style={{
         padding: '10px 14px',
-        background: 'rgba(245, 158, 11, 0.08)',
-        border: '1px solid rgba(245, 158, 11, 0.25)',
+        background: 'rgba(16, 185, 129, 0.08)',
+        border: '1px solid rgba(16, 185, 129, 0.3)',
         borderRadius: 'var(--radius)',
         marginBottom: 20,
       }}>
         <Space>
-          <ExclamationCircleOutlined style={{ color: 'var(--color-warning)' }} />
-          <Text style={{ fontSize: 12, color: 'var(--color-warning)' }}>
-            Your API token is never stored — you'll need to re-enter it each session.
+          <CheckCircleOutlined style={{ color: 'var(--color-success)' }} />
+          <Text style={{ fontSize: 12, color: 'var(--color-success)' }}>
+            Your API token is securely cached locally so you don't need to enter it every time.
           </Text>
         </Space>
       </div>
@@ -76,6 +84,7 @@ function JiraConnectionTab() {
         initialValues={{
           baseUrl: jiraConfig?.baseUrl || '',
           email: jiraConfig?.email || '',
+          apiToken: jiraConfig?.apiToken || '',
         }}
       >
         <Form.Item

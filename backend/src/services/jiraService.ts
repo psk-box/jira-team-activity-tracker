@@ -173,7 +173,7 @@ export class JiraService {
       params: { query, maxResults: 50 },
     });
 
-    cache.set(cacheKey, response.data, 900); // 15 min
+    cache.set(cacheKey, response.data, 300); // 5 min
     return response.data;
   }
 
@@ -188,7 +188,7 @@ export class JiraService {
       params: { accountId },
     });
 
-    cache.set(cacheKey, response.data, 900);
+    cache.set(cacheKey, response.data, 300); // 5 min
     return response.data;
   }
 
@@ -206,13 +206,12 @@ export class JiraService {
     const startTimeStr = startTime || '00:00';
     const endTimeStr = endTime || '23:59';
     
-    // CACHE DISABLED FOR DEBUGGING
-    // const cacheKeyForQuery = `activity_${startDate}_${startTimeStr}_${endDate}_${endTimeStr}_${(projectKeys || []).join("_")}`;
-    // const cachedResult = cache.get<Map<string, ActivityEvent[]>>(cacheKeyForQuery);
-    // if (cachedResult) {
-    //   logger.info("Returning cached activity result", { startDate, startTime: startTimeStr, endDate, endTime: endTimeStr, cacheKey: cacheKeyForQuery });
-    //   return cachedResult;
-    // }
+    const cacheKeyForQuery = `activity_${startDate}_${startTimeStr}_${endDate}_${endTimeStr}_${(projectKeys || []).join("_")}`;
+    const cachedResult = cache.get<Map<string, ActivityEvent[]>>(cacheKeyForQuery);
+    if (cachedResult) {
+      logger.info("Returning cached activity result", { startDate, startTime: startTimeStr, endDate, endTime: endTimeStr, cacheKey: cacheKeyForQuery });
+      return cachedResult;
+    }
 
     const projectFilter =
       projectKeys && projectKeys.length > 0
@@ -221,8 +220,8 @@ export class JiraService {
 
     // Construct JQL with timestamps using space format (Jira-compatible)
     // Format: "YYYY-MM-DD HH:MM:SS" instead of "YYYY-MM-DDTHH:MM:SS"
-    const startDateTime = `${startDate} ${startTimeStr}:00`;
-    const endDateTime = `${endDate} ${endTimeStr}:59`;
+    const startDateTime = `${startDate} ${startTimeStr}`;
+    const endDateTime = `${endDate} ${endTimeStr}`;
     const jql = `updated >= "${startDateTime}" AND updated <= "${endDateTime}"${projectFilter} ORDER BY updated DESC`;
 
     logger.info("Fetching Jira issues", { jql, userIds, startTime: startTimeStr, endTime: endTimeStr });
@@ -250,9 +249,8 @@ export class JiraService {
       activityMap,
     );
 
-    // CACHE DISABLED FOR DEBUGGING
-    // cache.set(cacheKeyForQuery, activityMap, 300);
-    // logger.info("Cached activity result", { startDate, endDate, cacheKey: cacheKeyForQuery });
+    cache.set(cacheKeyForQuery, activityMap, 300);
+    logger.info("Cached activity result", { startDate, endDate, cacheKey: cacheKeyForQuery });
 
     return activityMap;
   }
@@ -288,14 +286,12 @@ export class JiraService {
         ...(nextPageToken ? { nextPageToken } : {}),
       };
 
-      // CACHE DISABLED
-      // const cacheKey = `issues_v3_${Buffer.from(jql).toString("base64")}_${nextPageToken ?? "start"}`;
-      // let data = cache.get<{ issues: JiraIssue[]; nextPageToken?: string }>(
-      //   cacheKey,
-      // );
+      const cacheKey = `issues_v3_${Buffer.from(jql).toString("base64")}_${nextPageToken ?? "start"}`;
+      let data = cache.get<{ issues: JiraIssue[]; nextPageToken?: string }>(
+        cacheKey,
+      );
 
-      // if (!data) {
-        let data: { issues: JiraIssue[]; nextPageToken?: string };
+      if (!data) {
         try {
           logger.info("Calling Jira GET /search/jql", { jql, page: allIssues.length / maxResults + 1 });
 
@@ -312,7 +308,7 @@ export class JiraService {
             nextPageToken: response.data.nextPageToken,
           };
 
-          // cache.set(cacheKey, data, 300);
+          cache.set(cacheKey, data, 300);
         } catch (err: any) {
           logger.error("GET /search/jql failed", {
             status: err.response?.status,
@@ -320,7 +316,7 @@ export class JiraService {
           });
           throw err;
         }
-      // }
+      }
 
       allIssues.push(...data.issues);
       nextPageToken = data.nextPageToken;
@@ -395,7 +391,7 @@ export class JiraService {
       historyCount++;
       if (!userSet.has(history.author.accountId)) continue;
 
-      const date = history.created.substring(0, 10);
+      const date = this.getLocalDateString(history.created);
       if (!dateRange.has(date)) {
         logger.debug(`Skipping history for ${issue.key}: date ${date} not in range`, {
           issueKey: issue.key,
@@ -496,7 +492,7 @@ export class JiraService {
 
       for (const comment of data.comments) {
         if (!userSet.has(comment.author.accountId)) continue;
-        const date = comment.created.substring(0, 10);
+        const date = this.getLocalDateString(comment.created);
         if (!dateRange.has(date)) continue;
 
         const mapKey = `${comment.author.accountId}::${date}`;
@@ -516,7 +512,7 @@ export class JiraService {
 
       for (const worklog of data.worklogs) {
         if (!userSet.has(worklog.author.accountId)) continue;
-        const date = worklog.started.substring(0, 10);
+        const date = this.getLocalDateString(worklog.started);
         if (!dateRange.has(date)) continue;
 
         const mapKey = `${worklog.author.accountId}::${date}`;
@@ -552,11 +548,22 @@ export class JiraService {
     >("/project/search", { params: { maxResults: 100 } });
 
     const projects = (response.data as any).values || response.data;
-    cache.set(cacheKey, projects, 900);
+    cache.set(cacheKey, projects, 300); // 5 min
     return projects;
   }
 
   // ─── Helpers ────────────────────────────────────────────────────────────────
+
+  private getLocalDateString(dateStr: string): string {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) {
+      return dateStr.substring(0, 10);
+    }
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
 
   private getDateRange(startDate: string, endDate: string): Set<string> {
     const dates = new Set<string>();

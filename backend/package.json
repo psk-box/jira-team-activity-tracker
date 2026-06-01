@@ -4,7 +4,7 @@
   "description": "Backend proxy for Jira Team Activity Tracker",
   "main": "dist/index.js",
   "scripts": {
-    "dev": "CHOKIDAR_USEPOLLING=true ts-node-dev --respawn --transpile-only src/index.ts",
+    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js"
   },

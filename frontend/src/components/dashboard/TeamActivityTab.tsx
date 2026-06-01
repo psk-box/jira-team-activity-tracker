@@ -108,10 +108,12 @@ function NotConfigured({ onOpenConfig }: { onOpenConfig: () => void }) {
   );
 }
 
-// ─── Main Tab ─────────────────────────────────────────────────────────────────
+interface Props {
+  filters: ActivityFilters;
+  setFilters: React.Dispatch<React.SetStateAction<ActivityFilters>>;
+}
 
-export default function TeamActivityTab() {
-  const [filters, setFilters] = useState<ActivityFilters>(getDefaultFilters());
+export default function TeamActivityTab({ filters, setFilters }: Props) {
   const { isConfigured, trackedUsers } = useConfigStore();
   const [configOpen, setConfigOpen] = useState(false);
 
@@ -184,7 +186,7 @@ export default function TeamActivityTab() {
       <SummaryCards summary={data?.summary} loading={isLoading} />
 
       {/* Charts */}
-      {data?.summary && <ActivityCharts summary={data.summary} />}
+      {data?.summary && <ActivityCharts summary={data.summary} activities={data.activities || []} />}
 
       {/* Activity Table */}
       <ActivityTable

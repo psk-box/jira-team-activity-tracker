@@ -54,7 +54,7 @@ export function useProjects() {
     queryKey: ['projects'],
     queryFn: () => getJiraProjects(jiraConfig!),
     enabled: !!jiraConfig?.apiToken,
-    staleTime: 15 * 60 * 1000,
+    staleTime: 5 * 60 * 1000,
   });
 }
 
@@ -80,11 +80,9 @@ export function useActivity(filters: ActivityFilters) {
     : trackedUsers.map(u => u.accountId);
 
   const today = dayjs().format('YYYY-MM-DD');
-  // CACHE DISABLED FOR DEBUGGING
-  // const cacheKey = getCacheKey(filters.startDate, filters.endDate, filters.startTime, filters.endTime, userIds);
-  // const cachedData = activityDataCache.get(cacheKey);
-  // const hasCachedData = cachedData && isCacheValid(cachedData.timestamp);
-  const hasCachedData = false;  // Cache disabled
+  const cacheKey = getCacheKey(filters.startDate, filters.endDate, filters.startTime, filters.endTime, userIds);
+  const cachedData = activityDataCache.get(cacheKey);
+  const hasCachedData = cachedData && isCacheValid(cachedData.timestamp);
 
   const query = useQuery({
     queryKey: ['activity', userIds, filters.startDate, filters.endDate,
@@ -96,21 +94,20 @@ export function useActivity(filters: ActivityFilters) {
       targetDate: today,
     }),
     enabled: !!jiraConfig?.apiToken && userIds.length > 0,
-    staleTime: 0, // Cache disabled
+    staleTime: CACHE_TTL,
     refetchOnWindowFocus: false,
-    // initialData: hasCachedData ? cachedData.data : undefined,
+    initialData: hasCachedData ? cachedData.data : undefined,
   });
 
   // Cache the data when successfully fetched
-  // CACHE DISABLED FOR DEBUGGING
-  // React.useEffect(() => {
-  //   if (query.data) {
-  //     activityDataCache.set(cacheKey, {
-  //       timestamp: Date.now(),
-  //       data: query.data,
-  //     });
-  //   }
-  // }, [query.data, cacheKey]);
+  React.useEffect(() => {
+    if (query.data) {
+      activityDataCache.set(cacheKey, {
+        timestamp: Date.now(),
+        data: query.data,
+      });
+    }
+  }, [query.data, cacheKey]);
 
   return query;
 }

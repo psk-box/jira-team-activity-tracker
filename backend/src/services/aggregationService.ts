@@ -58,8 +58,12 @@ export function aggregateActivities(
       }
     }
 
-    // Count unique issues
-    const uniqueIssueSet = new Set(deduped.map(e => e.issueKey));
+    // Count unique issues (excluding field updates, i.e. updates other than status moves or comments)
+    const uniqueIssueSet = new Set(
+      deduped
+        .filter(e => e.activityType !== 'field_update')
+        .map(e => e.issueKey)
+    );
 
     // Count by type
     const statusChanges = deduped.filter(e => e.activityType === 'status_change').length;
@@ -221,8 +225,14 @@ export function filterActivities(
 
       if (events.length === 0) return null;
 
-      // Recalculate counts
-      const uniqueIssues = [...new Set(events.map(e => e.issueKey))];
+      // Recalculate counts (excluding field updates)
+      const uniqueIssues = [
+        ...new Set(
+          events
+            .filter(e => e.activityType !== 'field_update')
+            .map(e => e.issueKey)
+        )
+      ];
       return {
         ...activity,
         events,

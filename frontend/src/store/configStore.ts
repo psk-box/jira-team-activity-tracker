@@ -6,6 +6,7 @@ interface ConfigStore {
   jiraConfig: JiraConfig | null;
   trackedUsers: TrackedUser[];
   isConfigured: boolean;
+  theme: 'light' | 'dark';
 
   setJiraConfig: (config: JiraConfig) => void;
   clearJiraConfig: () => void;
@@ -13,6 +14,7 @@ interface ConfigStore {
   removeTrackedUser: (accountId: string) => void;
   updateTrackedUser: (accountId: string, updates: Partial<TrackedUser>) => void;
   setTrackedUsers: (users: TrackedUser[]) => void;
+  setTheme: (theme: 'light' | 'dark') => void;
 }
 
 export const useConfigStore = create<ConfigStore>()(
@@ -21,6 +23,7 @@ export const useConfigStore = create<ConfigStore>()(
       jiraConfig: null,
       trackedUsers: [],
       isConfigured: false,
+      theme: 'dark',
 
       setJiraConfig: (config) => {
         set({ jiraConfig: config, isConfigured: true });
@@ -54,18 +57,19 @@ export const useConfigStore = create<ConfigStore>()(
       setTrackedUsers: (users) => {
         set({ trackedUsers: users });
       },
+
+      setTheme: (theme) => {
+        set({ theme });
+      },
     }),
     {
       name: 'jira-tracker-config',
-      // Never persist the API token for security - always re-enter
+      // Persist the token and theme, as well as configured status
       partialize: (state) => ({
-        jiraConfig: state.jiraConfig ? {
-          baseUrl: state.jiraConfig.baseUrl,
-          email: state.jiraConfig.email,
-          apiToken: '', // Don't persist the token
-        } : null,
+        jiraConfig: state.jiraConfig,
         trackedUsers: state.trackedUsers,
-        isConfigured: false, // Always require re-validation
+        isConfigured: state.isConfigured,
+        theme: state.theme,
       }),
     }
   )

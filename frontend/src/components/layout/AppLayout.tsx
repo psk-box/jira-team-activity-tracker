@@ -7,51 +7,21 @@ import {
   FileTextOutlined,
   SettingOutlined,
   ReloadOutlined,
+  SunOutlined,
+  MoonOutlined,
 } from '@ant-design/icons';
 import { useConfigStore } from '../../store/configStore';
 import { useClearCache } from '../../hooks/useJira';
 import TeamActivityTab from '../dashboard/TeamActivityTab';
+import SprintInsightsTab from '../dashboard/SprintInsightsTab';
+import ProductivityAnalyticsTab from '../dashboard/ProductivityAnalyticsTab';
 import ConfigModal from '../config/ConfigModal';
 import StatusIndicator from '../shared/StatusIndicator';
+import { ActivityFilters } from '../../types';
+import dayjs from 'dayjs';
 
 const { Header, Content } = Layout;
 const { Text } = Typography;
-
-// ─── Tab Definitions (extensible for future tabs) ─────────────────────────────
-
-const tabs = [
-  {
-    key: 'team-activity',
-    label: 'Team Activity',
-    icon: <TeamOutlined />,
-    component: <TeamActivityTab />,
-    disabled: false,
-  },
-  {
-    key: 'productivity',
-    label: 'Productivity Analytics',
-    icon: <BarChartOutlined />,
-    component: <ComingSoon title="Productivity Analytics" />,
-    disabled: true,
-    badge: 'Soon',
-  },
-  {
-    key: 'sprint',
-    label: 'Sprint Insights',
-    icon: <RocketOutlined />,
-    component: <ComingSoon title="Sprint Insights" />,
-    disabled: true,
-    badge: 'Soon',
-  },
-  {
-    key: 'reports',
-    label: 'Custom Reports',
-    icon: <FileTextOutlined />,
-    component: <ComingSoon title="Custom Reports" />,
-    disabled: true,
-    badge: 'Soon',
-  },
-];
 
 function ComingSoon({ title }: { title: string }) {
   return (
@@ -75,8 +45,55 @@ function ComingSoon({ title }: { title: string }) {
 export default function AppLayout() {
   const [activeTab, setActiveTab] = useState('team-activity');
   const [configOpen, setConfigOpen] = useState(false);
-  const { isConfigured, trackedUsers, jiraConfig } = useConfigStore();
+  const { isConfigured, trackedUsers, jiraConfig, theme, setTheme } = useConfigStore();
   const clearCache = useClearCache();
+
+  // Lifted Activity Filters state (defaulting to today/current date only)
+  const [filters, setFilters] = useState<ActivityFilters>(() => {
+    const today = dayjs().format('YYYY-MM-DD');
+    return {
+      startDate: today,
+      endDate: today,
+      startTime: '00:00',
+      endTime: '23:59',
+      userIds: [],
+      projectKeys: [],
+      issueTypes: [],
+      activityTypes: [],
+    };
+  });
+
+  const tabs = [
+    {
+      key: 'team-activity',
+      label: 'Team Activity',
+      icon: <TeamOutlined />,
+      component: <TeamActivityTab filters={filters} setFilters={setFilters} />,
+      disabled: false,
+    },
+    {
+      key: 'sprint',
+      label: 'Sprint Insights',
+      icon: <RocketOutlined />,
+      component: <SprintInsightsTab filters={filters} />,
+      disabled: false,
+    },
+    {
+      key: 'productivity',
+      label: 'Productivity Analytics',
+      icon: <BarChartOutlined />,
+      component: <ProductivityAnalyticsTab filters={filters} />,
+      disabled: false,
+    },
+    {
+      key: 'reports',
+      label: 'Custom Reports',
+      icon: <FileTextOutlined />,
+      component: <ComingSoon title="Custom Reports" />,
+      disabled: true,
+      badge: 'Soon',
+    },
+  ];
 
   const tabItems = tabs.map(tab => ({
     key: tab.key,
@@ -109,9 +126,10 @@ export default function AppLayout() {
         justifyContent: 'space-between',
         padding: '0 24px',
         height: 56,
+        lineHeight: '56px', // Align text vertically
       }}>
         {/* Logo + Title */}
-        <Space size={12} align="center">
+        <Space size={12} align="center" style={{ height: '100%', display: 'flex', alignItems: 'center' }}>
           <div style={{
             width: 32,
             height: 32,
@@ -127,7 +145,7 @@ export default function AppLayout() {
           }}>
             J
           </div>
-          <div>
+          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
             <div style={{
               fontFamily: 'var(--font-display)',
               fontWeight: 600,
@@ -141,7 +159,9 @@ export default function AppLayout() {
               fontFamily: 'var(--font-mono)',
               fontSize: 10,
               color: 'var(--color-text-muted)',
+              lineHeight: 1.0,
               letterSpacing: '0.08em',
+              marginTop: 2,
             }}>
               TRACKER v1.0
             </div>
@@ -149,12 +169,29 @@ export default function AppLayout() {
         </Space>
 
         {/* Header Actions */}
-        <Space size={12}>
+        <Space size={12} align="center" style={{ height: '100%', display: 'flex', alignItems: 'center' }}>
           <StatusIndicator
             isConnected={isConfigured}
             baseUrl={jiraConfig?.baseUrl}
             userCount={trackedUsers.length}
           />
+
+          {/* Theme Selection Toggle */}
+          <Tooltip title={theme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}>
+            <Button
+              icon={theme === 'light' ? <MoonOutlined /> : <SunOutlined />}
+              size="small"
+              onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+              style={{
+                background: 'var(--color-surface-2)',
+                border: '1px solid var(--color-border)',
+                color: 'var(--color-text-muted)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            />
+          </Tooltip>
 
           {isConfigured && (
             <Tooltip title="Refresh data (clear cache)">
@@ -167,6 +204,9 @@ export default function AppLayout() {
                   background: 'var(--color-surface-2)',
                   border: '1px solid var(--color-border)',
                   color: 'var(--color-text-muted)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
                 }}
               />
             </Tooltip>
@@ -181,6 +221,9 @@ export default function AppLayout() {
               color: isConfigured ? 'var(--color-primary)' : 'var(--color-text-muted)',
               fontFamily: 'var(--font-mono)',
               fontSize: 12,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4,
             }}
           >
             {isConfigured ? 'Settings' : 'Configure'}

@@ -41,7 +41,9 @@ jira-tracker/
         ├── components/
         │   ├── layout/AppLayout.tsx          # Tab-based shell (extensible)
         │   ├── dashboard/
-        │   │   ├── TeamActivityTab.tsx        # Main tab
+        │   │   ├── TeamActivityTab.tsx        # Main activity tab
+        │   │   ├── SprintInsightsTab.tsx      # Sprint KPI & contributor scorecard tab
+        │   │   ├── ProductivityAnalyticsTab.tsx # Cycle times, peak productivity hours tab
         │   │   ├── SummaryCards.tsx           # KPI cards
         │   │   ├── ActivityTable.tsx          # Expandable data table
         │   │   └── FiltersBar.tsx             # Filter controls
@@ -53,10 +55,38 @@ jira-tracker/
         │       └── StatusIndicator.tsx
         ├── services/jiraApi.ts               # API calls (via backend proxy)
         ├── hooks/useJira.ts                  # TanStack Query hooks
-        ├── store/configStore.ts              # Zustand state
+        ├── store/configStore.ts              # Zustand state (Theme + Persisted Credentials)
         ├── utils/exportUtils.ts             # CSV + Excel export
         └── types/index.ts                   # Shared TypeScript types
 ```
+
+---
+
+## Core Dashboard Features
+
+### 1. Team Activity (Main Dashboard)
+- Visual analytics charts: Daily Activity Trends, Activity Type distribution, Top Active users, and Worklog Duration (hours logged on Y-axis vs users on X-axis).
+- **Unique Issues Worked On**: Dynamic widget listing unique tickets touched per developer.
+- Expandable daily table listing exact status changes, comment counts, edits, and worklog events.
+
+### 2. Sprint Insights Tab
+- **Sprint KPIs**: Displays total completed issues, refinements, collaborations (comments), and total hours.
+- **Sprint Burn-up**: Visual cumulative area chart plotting completions over the selected date range.
+- **Bug Resolution Rate**: Gauges bug-fixing progress using a visual radial indicator.
+- **Sprint Contributor Scorecard**: Ranks developer contributions using a weighted point algorithm:
+  $$\text{Score} = (\text{Completions} \times 10) + (\text{Unique Issues Touched} \times 4) + (\text{Hours Logged} \times 3) + (\text{Comments} \times 2)$$
+  *Note: Issues touched only by status shifts are excluded from unique issues score count.*
+
+### 3. Productivity Analytics Tab
+- **Productivity KPIs**: Displays Average Cycle Time, Focus Intensity Index, average Time to Value, and active WIP count.
+- **Peak Hour Analysis**: Identifies team peak hours by mapping events to the hour of the day (00:00 to 23:00).
+- **Weekly Workload Intensity**: Groups event volumes across days of the week (Monday - Sunday).
+- **WIP vs Completed Tasks**: Side-by-side comparison per developer.
+- **Cycle Time Detail Table**: Lists completed issues showing start time (first "In Progress" transition), end time (transition to "Done"), and total cycle duration.
+
+### 4. Aesthetics & Theme Selection
+- Premium, state-of-the-art visual styling featuring smooth micro-animations.
+- Fully-integrated **Dark & Light Modes** with custom-designed palettes dynamically overriding CSS variables at runtime.
 
 ---
 
@@ -104,13 +134,13 @@ Open **http://localhost:5173** in your browser.
 
 ---
 
-## Security Design
+## Security & State Design
 
-- **API token is never stored** — it's only kept in memory for the browser session and sent per-request via a custom HTTP header (`x-jira-token`).
-- **Backend proxy pattern** — the frontend never calls Jira directly. All Jira API calls go through the backend, which validates the config on each request.
-- **No server-side credential storage** — the backend receives credentials from the frontend per-request and forwards them to Jira. Nothing is persisted.
-- **Rate limiting** — backend enforces 500 requests per 15 minutes per IP.
-- **Input validation** — all inputs validated with Zod schemas server-side.
+- **Persisted Token Cache**: For convenience, configuration state (including `apiToken` and light/dark theme preference) is cached securely client-side in the browser's local storage.
+- **Backend proxy pattern**: The frontend never calls Jira directly. All API calls pass through the backend proxy, which validates the headers on each request.
+- **No server-side credential storage**: The backend receives credentials from the frontend per-request and forwards them to Jira. Nothing is persisted on the server.
+- **Rate limiting**: Backend enforces 500 requests per 15 minutes per IP.
+- **Input validation**: All inputs are validated with Zod schemas server-side.
 
 ---
 
@@ -131,31 +161,20 @@ x-jira-email: you@company.com
 x-jira-token: your-api-token
 ```
 
-### Activity Query Parameters
-
-| Param | Format | Description |
-|---|---|---|
-| `userIds` | comma-separated accountIds | Users to fetch activity for |
-| `startDate` | `YYYY-MM-DD` | Start of date range |
-| `endDate` | `YYYY-MM-DD` | End of date range |
-| `projectKeys` | comma-separated | Filter by project |
-| `issueTypes` | comma-separated | Filter by issue type |
-| `activityTypes` | comma-separated | Filter by activity type |
-
 ---
 
-## Caching
+## Caching Policy
 
-The backend uses an in-memory cache (NodeCache) with these TTLs:
+All cache times are unified to exactly **5 minutes** (300 seconds TTL on the backend, 300,000ms staleTime on the frontend) to maintain cache integrity:
 
-| Data | TTL |
+| Data | TTL (Cache Time) |
 |---|---|
-| User lookups | 15 minutes |
-| Project list | 15 minutes |
+| User lookups | 5 minutes |
+| Project lists | 5 minutes |
 | Issue search results | 5 minutes |
 | Comments + Worklogs | 5 minutes |
 
-The "Refresh" button in the header clears all caches and re-fetches.
+The "Refresh" reload icon button in the app header clears all backend/frontend caches and triggers a fresh load.
 
 ---
 
@@ -164,39 +183,6 @@ The "Refresh" button in the header clears all caches and re-fetches.
 The table's **CSV** and **Excel** export buttons respect currently applied filters. Excel exports include two sheets:
 - **Team Activity** — summary per user per day
 - **Detailed Events** — every individual activity event
-
----
-
-## Adding Future Tabs
-
-The tab system is in `AppLayout.tsx`. To add a new tab:
-
-```typescript
-// In frontend/src/components/layout/AppLayout.tsx
-const tabs = [
-  { key: 'team-activity', label: 'Team Activity', icon: <TeamOutlined />, component: <TeamActivityTab /> },
-  // Add your new tab:
-  { key: 'my-feature', label: 'My Feature', icon: <MyIcon />, component: <MyTab /> },
-];
-```
-
----
-
-## Jira API Notes
-
-- Uses **Jira REST API v3** (`/rest/api/3/`)
-- Compatible with **Jira Cloud** (Atlassian.net)
-- For **Jira Server/Data Center**, set `baseUrl` to your server URL; the `/rest/api/3/` path should still work for modern versions. For older versions, you may need to change the client base URL to `/rest/api/2/` in `backend/src/services/jiraService.ts`.
-- The `expand=changelog` parameter is used on the issue search endpoint — this is the key to accurate activity tracking.
-
----
-
-## Performance Considerations
-
-- Issues are fetched in **pages of 100** to handle large boards
-- Comments and worklogs are fetched in **batches of 10** to avoid API rate limits
-- Results are **cached server-side** to minimize redundant API calls
-- For very large teams (50+ users) with wide date ranges, expect 30–60s load times on first fetch due to Jira API pagination
 
 ---
 
