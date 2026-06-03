@@ -152,6 +152,20 @@ router.get('/activity', async (req: Request, res: Response, next: NextFunction) 
   }
 });
 
+// ─── Filter Stats ──────────────────────────────────────────────────────────────
+
+router.get('/filter/:id/stats', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const config = getConfigFromRequest(req);
+    const service = getJiraService(config);
+    const filterId = req.params.id;
+    const stats = await service.getFilterStats(filterId);
+    res.json(stats);
+  } catch (err) {
+    next(err);
+  }
+});
+
 // ─── Clear Cache ───────────────────────────────────────────────────────────────
 
 router.post('/cache/clear', async (req: Request, res: Response, next: NextFunction) => {

@@ -535,6 +535,90 @@ export class JiraService {
     }
   }
 
+  // ─── Filter Stats ───────────────────────────────────────────────────────────
+
+  async getFilterStats(filterId: string): Promise<any> {
+    try {
+      const filterRes = await this.client.get(`/filter/${filterId}`);
+      const jql = filterRes.data.jql;
+
+      const allIssues: any[] = [];
+      let startAt = 0;
+      const maxResults = 100;
+
+      if (this.apiVersion === "3") {
+         let nextPageToken: string | undefined;
+         do {
+            const params: any = { jql, maxResults, fields: "assignee,status,components" };
+            if (nextPageToken) params.nextPageToken = nextPageToken;
+            const res = await this.client.get("/search/jql", { params });
+            allIssues.push(...(res.data.issues || []));
+            nextPageToken = res.data.nextPageToken;
+         } while (nextPageToken);
+      } else {
+         while (true) {
+            const res = await this.client.get("/search", {
+               params: { jql, startAt, maxResults, fields: "assignee,status,components" }
+            });
+            const issues = res.data.issues || [];
+            allIssues.push(...issues);
+            if (allIssues.length >= (res.data.total || issues.length) || issues.length === 0) break;
+            startAt += maxResults;
+         }
+      }
+
+      const assigneeStats = new Map<string, { user: JiraUser | null, count: number }>();
+      const statusStats = new Map<string, number>();
+      const componentStats = new Map<string, number>();
+
+      for (const issue of allIssues) {
+        const assignee = issue.fields?.assignee || null;
+        const accountId = assignee?.accountId || 'unassigned';
+
+        if (!assigneeStats.has(accountId)) {
+          assigneeStats.set(accountId, { user: assignee, count: 0 });
+        }
+        assigneeStats.get(accountId)!.count++;
+
+        const statusName = issue.fields?.status?.name || 'Unknown';
+        statusStats.set(statusName, (statusStats.get(statusName) || 0) + 1);
+
+        const components = issue.fields?.components || [];
+        if (components.length === 0) {
+          componentStats.set('No Component', (componentStats.get('No Component') || 0) + 1);
+        } else {
+          for (const comp of components) {
+            const compName = comp.name || 'Unknown';
+            componentStats.set(compName, (componentStats.get(compName) || 0) + 1);
+          }
+        }
+      }
+
+      const statsArray = Array.from(assigneeStats.values()).map(stat => ({
+        assignee: stat.user ? stat.user.displayName : 'Unassigned',
+        accountId: stat.user ? stat.user.accountId : 'unassigned',
+        email: stat.user ? stat.user.emailAddress : '',
+        avatarUrl: stat.user && stat.user.avatarUrls ? stat.user.avatarUrls['48x48'] || stat.user.avatarUrls['32x32'] : '',
+        count: stat.count
+      })).sort((a, b) => b.count - a.count);
+
+      const statusArray = Array.from(statusStats.entries()).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count);
+      const componentArray = Array.from(componentStats.entries()).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count);
+
+      return {
+        filterName: filterRes.data.name,
+        jql,
+        totalIssues: allIssues.length,
+        assigneeStats: statsArray,
+        statusStats: statusArray,
+        componentStats: componentArray
+      };
+    } catch (err: any) {
+      logger.error("Failed to fetch filter stats", { filterId, message: err.message });
+      throw err;
+    }
+  }
+
   // ─── Get Projects ───────────────────────────────────────────────────────────
 
   async getProjects(): Promise<{ key: string; name: string; id: string }[]> {

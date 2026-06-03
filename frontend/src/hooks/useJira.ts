@@ -8,6 +8,7 @@ import {
   getJiraProjects,
   fetchActivity,
   clearJiraCache,
+  fetchFilterStats,
 } from '../services/jiraApi';
 import { useConfigStore } from '../store/configStore';
 import { ActivityFilters } from '../types';
@@ -127,5 +128,18 @@ export function useClearCache() {
     onError: (err: Error) => {
       message.error(`Failed to clear cache: ${err.message}`);
     },
+  });
+}
+
+// ─── Hook: Filter Stats ────────────────────────────────────────────────────────
+
+export function useFilterStats(filterId: string | null) {
+  const { jiraConfig } = useConfigStore();
+
+  return useQuery({
+    queryKey: ['filterStats', filterId],
+    queryFn: () => fetchFilterStats(jiraConfig!, filterId!),
+    enabled: !!jiraConfig?.apiToken && !!filterId,
+    staleTime: 5 * 60 * 1000,
   });
 }

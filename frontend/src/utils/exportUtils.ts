@@ -105,3 +105,15 @@ export function exportToExcel(
 
   XLSX.writeFile(workbook, `${filename}.xlsx`);
 }
+
+export function exportFilterStatsToExcel(data: any[], filename = 'filter-stats'): void {
+  const worksheet = XLSX.utils.json_to_sheet(data);
+  const workbook = XLSX.utils.book_new();
+
+  worksheet['!cols'] = [
+    { wch: 30 }, { wch: 35 }, { wch: 20 },
+  ];
+
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Filter Stats');
+  XLSX.writeFile(workbook, filename + ".xlsx");
+}

@@ -80,3 +80,9 @@ export async function clearJiraCache(config: JiraConfig): Promise<void> {
   const client = createApiClient(config);
   await client.post('/cache/clear');
 }
+
+export async function fetchFilterStats(config: JiraConfig, filterId: string): Promise<any> {
+  const client = createApiClient(config);
+  const response = await client.get(`/filter/${filterId}/stats`);
+  return response.data;
+}

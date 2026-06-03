@@ -18,6 +18,7 @@ import ProductivityAnalyticsTab from '../dashboard/ProductivityAnalyticsTab';
 import ConfigModal from '../config/ConfigModal';
 import StatusIndicator from '../shared/StatusIndicator';
 import { ActivityFilters } from '../../types';
+import { FilterStatsTab } from '../dashboard/FilterStatsTab';
 import dayjs from 'dayjs';
 
 const { Header, Content } = Layout;
@@ -83,6 +84,13 @@ export default function AppLayout() {
       label: 'Productivity Analytics',
       icon: <BarChartOutlined />,
       component: <ProductivityAnalyticsTab filters={filters} />,
+      disabled: false,
+    },
+    {
+      key: 'filter-stats',
+      label: 'Filter Stats',
+      icon: <FileTextOutlined />,
+      component: <FilterStatsTab />,
       disabled: false,
     },
     {
