@@ -152,6 +152,9 @@ export interface GitlabUserActivity {
   comments: number;
   mrComments: number;
   issueComments: number;
+  linesAdded: number;
+  linesDeleted: number;
+  uniqueBranches: string[];
   events: GitlabActivityEvent[];
 }
 

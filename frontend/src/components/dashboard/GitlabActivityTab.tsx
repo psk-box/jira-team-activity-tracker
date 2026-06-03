@@ -12,6 +12,8 @@ import GitlabPipelinesWidget from "./GitlabPipelinesWidget";
 import GitlabActivityTable from "./GitlabActivityTable";
 import GitlabDailyContributionsWidget from "./GitlabDailyContributionsWidget";
 import GitlabWeeklyIntensityWidget from "./GitlabWeeklyIntensityWidget";
+import GitlabMRCycleTimeWidget from "./GitlabMRCycleTimeWidget";
+import GitlabProjectFocusWidget from "./GitlabProjectFocusWidget";
 import ConfigModal from "../config/ConfigModal";
 
 const { Text, Title } = Typography;
@@ -65,6 +67,8 @@ export default function GitlabActivityTab({ filters }: Props) {
     breakdown: false,
     dailyContribs: false,
     weeklyIntensity: false,
+    mrCycleTime: false,
+    projectFocus: false,
     leaderboard: false,
     pipelines: false,
     table: false,
@@ -86,6 +90,8 @@ export default function GitlabActivityTab({ filters }: Props) {
       breakdown: false,
       dailyContribs: false,
       weeklyIntensity: false,
+      mrCycleTime: false,
+      projectFocus: false,
       leaderboard: false,
       pipelines: false,
       table: false,
@@ -99,6 +105,8 @@ export default function GitlabActivityTab({ filters }: Props) {
       breakdown: true,
       dailyContribs: true,
       weeklyIntensity: true,
+      mrCycleTime: true,
+      projectFocus: true,
       leaderboard: true,
       pipelines: true,
       table: true,
@@ -225,6 +233,22 @@ export default function GitlabActivityTab({ filters }: Props) {
                 activities={data?.activities || []}
                 isMinimized={minimizedStates.weeklyIntensity}
                 onMinimizeToggle={() => toggleMinimize("weeklyIntensity")}
+              />
+            </Col>
+
+            {/* Row 2.5: MR Cycle times & Project focus hotspots */}
+            <Col xs={24} xl={12}>
+              <GitlabMRCycleTimeWidget
+                activities={data?.activities || []}
+                isMinimized={minimizedStates.mrCycleTime}
+                onMinimizeToggle={() => toggleMinimize("mrCycleTime")}
+              />
+            </Col>
+            <Col xs={24} xl={12}>
+              <GitlabProjectFocusWidget
+                activities={data?.activities || []}
+                isMinimized={minimizedStates.projectFocus}
+                onMinimizeToggle={() => toggleMinimize("projectFocus")}
               />
             </Col>
 

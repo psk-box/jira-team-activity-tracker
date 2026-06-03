@@ -1,6 +1,6 @@
 import React from "react";
-import { Card, Typography, Empty, Space, Table, Avatar, Progress } from "antd";
-import { CrownOutlined, ShrinkOutlined, ArrowsAltOutlined } from "@ant-design/icons";
+import { Card, Typography, Empty, Space, Table, Avatar, Progress, Tag } from "antd";
+import { CrownOutlined, ShrinkOutlined, ArrowsAltOutlined, BranchesOutlined, PullRequestOutlined } from "@ant-design/icons";
 import { GitlabUserActivity } from "../../types";
 
 const { Text, Title } = Typography;
@@ -13,13 +13,13 @@ interface Props {
 
 export default function GitlabLeaderboardWidget({ activities, isMinimized, onMinimizeToggle }: Props) {
   const dataSource = activities.map((act) => {
-    // Calculate a weighted GitLab contribution score
+    // Calculate a weighted GitLab contribution score incorporating branches and line counts
     const score = act.commits * 1 +
       (act.pushes || 0) * 2 +
       (act.mrsOpened + act.mrsMerged) * 5 +
       (act.mrComments || 0) * 2 +
-      (act.issueComments || 0) * 1 +
-      (act.issuesOpened + act.issuesClosed) * 3;
+      (act.uniqueBranches?.length || 0) * 10 +
+      Math.round(((act.linesAdded || 0) + (act.linesDeleted || 0)) * 0.1);
 
     return {
       key: act.userId,
@@ -30,6 +30,9 @@ export default function GitlabLeaderboardWidget({ activities, isMinimized, onMin
       pushes: act.pushes || 0,
       mrs: act.mrsOpened + act.mrsMerged,
       mrComments: act.mrComments || 0,
+      branchesCount: act.uniqueBranches?.length || 0,
+      linesAdded: act.linesAdded || 0,
+      linesDeleted: act.linesDeleted || 0,
       score,
     };
   });
@@ -57,7 +60,7 @@ export default function GitlabLeaderboardWidget({ activities, isMinimized, onMin
           color: rank === 1 ? "#eab308" : rank === 2 ? "#94a3b8" : rank === 3 ? "#b45309" : "var(--color-text-muted)",
           fontFamily: "var(--font-mono)",
         }}>
-          {rank === 1 ? <CrownOutlined /> : rank}
+          {rank === 1 ? <CrownOutlined style={{ color: "#eab308" }} /> : rank}
         </span>
       ),
     },
@@ -80,39 +83,43 @@ export default function GitlabLeaderboardWidget({ activities, isMinimized, onMin
       ),
     },
     {
-      title: "Commits",
-      dataIndex: "commits",
-      key: "commits",
-      align: "right" as const,
-      width: 80,
-      render: (val: number) => <Text style={{ fontFamily: "var(--font-mono)" }}>{val}</Text>,
+      title: "Branches",
+      dataIndex: "branchesCount",
+      key: "branchesCount",
+      align: "center" as const,
+      width: 90,
+      render: (val: number) => (
+        <Tag color="cyan" icon={<BranchesOutlined />} style={{ fontFamily: "var(--font-mono)", margin: 0 }}>
+          {val}
+        </Tag>
+      ),
     },
     {
-      title: "Pushes",
-      dataIndex: "pushes",
-      key: "pushes",
-      align: "right" as const,
-      width: 80,
-      render: (val: number) => <Text style={{ fontFamily: "var(--font-mono)" }}>{val}</Text>,
-    },
-    {
-      title: "MRs",
+      title: "MRs (Merge Requests)",
       dataIndex: "mrs",
       key: "mrs",
-      align: "right" as const,
-      width: 80,
-      render: (val: number) => <Text style={{ fontFamily: "var(--font-mono)" }}>{val}</Text>,
+      align: "center" as const,
+      width: 150,
+      render: (val: number) => (
+        <Tag color="blue" icon={<PullRequestOutlined />} style={{ fontFamily: "var(--font-mono)", margin: 0 }}>
+          {val}
+        </Tag>
+      ),
     },
     {
-      title: "MR Comments",
-      dataIndex: "mrComments",
-      key: "mrComments",
-      align: "right" as const,
-      width: 110,
-      render: (val: number) => <Text style={{ fontFamily: "var(--font-mono)" }}>{val}</Text>,
+      title: "Lines Changed",
+      key: "linesChanged",
+      width: 160,
+      render: (_: any, record: typeof dataSourceWithRank[0]) => (
+        <div style={{ display: "flex", gap: 4, fontFamily: "var(--font-mono)", fontSize: 11 }}>
+          <span style={{ color: "#10b981", fontWeight: 600 }}>+{record.linesAdded}</span>
+          <span style={{ color: "var(--color-text-muted)" }}>/</span>
+          <span style={{ color: "#ef4444", fontWeight: 600 }}>-{record.linesDeleted}</span>
+        </div>
+      ),
     },
     {
-      title: "Weighted Contribution Score",
+      title: "Weighted Score",
       dataIndex: "score",
       key: "score",
       render: (score: number) => {
