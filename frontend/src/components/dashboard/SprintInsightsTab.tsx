@@ -1,5 +1,5 @@
-import React from 'react';
-import { Row, Col, Card, Statistic, Table, Avatar, Progress, Space, Alert, Typography, Spin } from 'antd';
+import React, { useState } from 'react';
+import { Row, Col, Card, Statistic, Table, Avatar, Progress, Space, Alert, Typography, Spin, Button } from 'antd';
 import {
   CheckCircleOutlined,
   EditOutlined,
@@ -8,6 +8,8 @@ import {
   RocketOutlined,
   BugOutlined,
   LoadingOutlined,
+  UpOutlined,
+  DownOutlined,
 } from '@ant-design/icons';
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid
@@ -36,6 +38,7 @@ interface ContributorData {
 
 export default function SprintInsightsTab({ filters }: Props) {
   const { data, isLoading, isFetching } = useActivity(filters);
+  const [isMinimized, setIsMinimized] = useState(false);
 
   const activities: AggregatedUserActivity[] = data?.activities || [];
 
@@ -439,24 +442,35 @@ export default function SprintInsightsTab({ filters }: Props) {
             </span>
           </div>
         }
+        extra={
+          <Button
+            type="text"
+            size="small"
+            onClick={() => setIsMinimized(!isMinimized)}
+            icon={isMinimized ? <DownOutlined /> : <UpOutlined />}
+            style={{ color: 'var(--color-text-muted)' }}
+          />
+        }
         bordered={false}
         style={{ background: 'var(--color-surface)' }}
       >
-        {contributors.length === 0 ? (
-          <Alert
-            message="No sprint contributions found"
-            description="Add tracked team members and ensure activities exist inside the selected date range."
-            type="info"
-            showIcon
-          />
-        ) : (
-          <Table
-            dataSource={contributors}
-            columns={tableColumns}
-            pagination={false}
-            size="middle"
-            className="fade-in"
-          />
+        {!isMinimized && (
+          contributors.length === 0 ? (
+            <Alert
+              message="No sprint contributions found"
+              description="Add tracked team members and ensure activities exist inside the selected date range."
+              type="info"
+              showIcon
+            />
+          ) : (
+            <Table
+              dataSource={contributors}
+              columns={tableColumns}
+              pagination={false}
+              size="middle"
+              className="fade-in"
+            />
+          )
         )}
       </Card>
     </div>

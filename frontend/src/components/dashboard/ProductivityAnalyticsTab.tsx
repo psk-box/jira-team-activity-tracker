@@ -1,5 +1,5 @@
-import React from 'react';
-import { Row, Col, Card, Statistic, Table, Typography, Spin, Tag, Progress, Space } from 'antd';
+import React, { useState } from 'react';
+import { Row, Col, Card, Statistic, Table, Typography, Spin, Tag, Progress, Space, Button } from 'antd';
 import {
   ClockCircleOutlined,
   ThunderboltOutlined,
@@ -7,6 +7,8 @@ import {
   LoadingOutlined,
   FieldTimeOutlined,
   FireOutlined,
+  UpOutlined,
+  DownOutlined,
 } from '@ant-design/icons';
 import {
   ResponsiveContainer,
@@ -49,6 +51,7 @@ const USER_COLORS = ['#3b82f6', '#06b6d4', '#10b981', '#f59e0b', '#8b5cf6', '#ef
 
 export default function ProductivityAnalyticsTab({ filters }: Props) {
   const { data, isLoading, isFetching } = useActivity(filters);
+  const [isMinimized, setIsMinimized] = useState(false);
 
   const activities: AggregatedUserActivity[] = data?.activities || [];
 
@@ -85,6 +88,10 @@ export default function ProductivityAnalyticsTab({ filters }: Props) {
   }));
 
   const weekdayMap: Record<string, number> = {
+    'Monday': 0, 'Tuesday': 0, 'Wednesday': 0, 'Thursday': 0, 'Friday': 0, 'Saturday': 0, 'Sunday': 0,
+  };
+
+  const weekdayHoursMap: Record<string, number> = {
     'Monday': 0, 'Tuesday': 0, 'Wednesday': 0, 'Thursday': 0, 'Friday': 0, 'Saturday': 0, 'Sunday': 0,
   };
 
@@ -130,7 +137,11 @@ export default function ProductivityAnalyticsTab({ filters }: Props) {
           userWip.activeIssues.add(event.issueKey);
         }
       } else if (event.activityType === 'worklog') {
-        totalHours += (event.worklogDurationSeconds || 0) / 3600;
+        const hrs = (event.worklogDurationSeconds || 0) / 3600;
+        totalHours += hrs;
+        if (weekday in weekdayHoursMap) {
+          weekdayHoursMap[weekday] += hrs;
+        }
       }
 
       // Group events by issue key for cycle time calculation
@@ -232,6 +243,16 @@ export default function ProductivityAnalyticsTab({ filters }: Props) {
     { day: 'Fri', activities: weekdayMap['Friday'] },
     { day: 'Sat', activities: weekdayMap['Saturday'] },
     { day: 'Sun', activities: weekdayMap['Sunday'] },
+  ];
+
+  const weeklyHoursData = [
+    { day: 'Mon', hours: parseFloat(weekdayHoursMap['Monday'].toFixed(1)) },
+    { day: 'Tue', hours: parseFloat(weekdayHoursMap['Tuesday'].toFixed(1)) },
+    { day: 'Wed', hours: parseFloat(weekdayHoursMap['Wednesday'].toFixed(1)) },
+    { day: 'Thu', hours: parseFloat(weekdayHoursMap['Thursday'].toFixed(1)) },
+    { day: 'Fri', hours: parseFloat(weekdayHoursMap['Friday'].toFixed(1)) },
+    { day: 'Sat', hours: parseFloat(weekdayHoursMap['Saturday'].toFixed(1)) },
+    { day: 'Sun', hours: parseFloat(weekdayHoursMap['Sunday'].toFixed(1)) },
   ];
 
   // WIP vs Completed data formatting
@@ -382,7 +403,7 @@ export default function ProductivityAnalyticsTab({ filters }: Props) {
       {/* Visual Analytics Row */}
       <Row gutter={[16, 16]}>
         {/* Hourly Activity Distribution */}
-        <Col xs={24} lg={12}>
+        <Col xs={24} lg={8}>
           <div style={{
             background: 'var(--color-surface)',
             border: '1px solid var(--color-border)',
@@ -442,7 +463,7 @@ export default function ProductivityAnalyticsTab({ filters }: Props) {
         </Col>
 
         {/* Weekly Day Distribution */}
-        <Col xs={24} lg={12}>
+        <Col xs={24} lg={8}>
           <div style={{
             background: 'var(--color-surface)',
             border: '1px solid var(--color-border)',
@@ -484,6 +505,57 @@ export default function ProductivityAnalyticsTab({ filters }: Props) {
                 <Bar dataKey="activities" fill="var(--color-primary)" radius={[4, 4, 0, 0]}>
                   {weeklyData.map((_, index) => (
                     <Cell key={`cell-${index}`} fill={USER_COLORS[index % USER_COLORS.length]} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </Col>
+
+        {/* Weekly Worklog Intensity */}
+        <Col xs={24} lg={8}>
+          <div style={{
+            background: 'var(--color-surface)',
+            border: '1px solid var(--color-border)',
+            borderRadius: 'var(--radius-lg)',
+            padding: '20px 24px',
+          }}>
+            <Text style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: 11,
+              color: 'var(--color-text-muted)',
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              marginBottom: 16,
+              display: 'block',
+            }}>
+              Weekly Work Log Intensity
+            </Text>
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={weeklyHoursData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
+                <XAxis
+                  dataKey="day"
+                  tick={{ fill: 'var(--color-text-muted)', fontFamily: 'var(--font-mono)', fontSize: 10 }}
+                />
+                <YAxis
+                  tick={{ fill: 'var(--color-text-muted)', fontFamily: 'var(--font-mono)', fontSize: 10 }}
+                  allowDecimals={true}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'var(--color-surface-2)',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: 8,
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: 12,
+                    color: 'var(--color-text)',
+                  }}
+                  formatter={(val) => [`${val} hrs`, 'Logged Time']}
+                />
+                <Bar dataKey="hours" fill="var(--color-warning)" radius={[4, 4, 0, 0]}>
+                  {weeklyHoursData.map((_, index) => (
+                    <Cell key={`cell-${index}`} fill={USER_COLORS[(index + 3) % USER_COLORS.length]} />
                   ))}
                 </Bar>
               </BarChart>
@@ -561,16 +633,27 @@ export default function ProductivityAnalyticsTab({ filters }: Props) {
                 </span>
               </div>
             }
+            extra={
+              <Button
+                type="text"
+                size="small"
+                onClick={() => setIsMinimized(!isMinimized)}
+                icon={isMinimized ? <DownOutlined /> : <UpOutlined />}
+                style={{ color: 'var(--color-text-muted)' }}
+              />
+            }
             bordered={false}
             style={{ background: 'var(--color-surface)', height: '100%' }}
             bodyStyle={{ padding: '0 24px 24px 24px' }}
           >
-            <Table
-              dataSource={completedCycleDetails}
-              columns={tableColumns}
-              pagination={{ pageSize: 4, size: 'small' }}
-              size="middle"
-            />
+            {!isMinimized && (
+              <Table
+                dataSource={completedCycleDetails}
+                columns={tableColumns}
+                pagination={{ pageSize: 4, size: 'small' }}
+                size="middle"
+              />
+            )}
           </Card>
         </Col>
       </Row>

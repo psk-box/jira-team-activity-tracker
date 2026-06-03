@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Typography, Input, Button, Table, Card, Space, Spin, Alert, Avatar, Row, Col, Statistic } from 'antd';
-import { AppstoreOutlined, TagsOutlined, SearchOutlined, DownloadOutlined, UserOutlined, BugOutlined, TeamOutlined, QuestionCircleOutlined } from '@ant-design/icons';
+import { AppstoreOutlined, TagsOutlined, SearchOutlined, DownloadOutlined, UserOutlined, BugOutlined, TeamOutlined, QuestionCircleOutlined, ExclamationCircleOutlined, ClockCircleOutlined, UpOutlined, DownOutlined, CheckCircleOutlined } from '@ant-design/icons';
 import { PieChart, Pie, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Cell } from 'recharts';
 import { useFilterStats } from '../../hooks/useJira';
 import { exportFilterStatsToExcel } from '../../utils/exportUtils';
@@ -10,10 +10,21 @@ const { Title, Text } = Typography;
 const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#A28CF2", "#FF6666", "#4CAF50", "#F44336"];
 
 export const FilterStatsTab: React.FC = () => {
-  const [inputValue, setInputValue] = useState('');
-  const [filterId, setFilterId] = useState<string | null>(null);
+  const [inputValue, setInputValue] = useState('39214');
+  const [filterId, setFilterId] = useState<string | null>('39214');
+  const [isMinimized, setIsMinimized] = useState(false);
 
   const { data, isLoading, isError, error } = useFilterStats(filterId);
+
+  const doneCount = data?.statusStats?.reduce((sum: number, item: any) => {
+    const name = item.name.toLowerCase();
+    if (name === 'done' || name === 'resolved' || name === 'closed' || name === 'completed' || name === 'verified') {
+      return sum + item.count;
+    }
+    return sum;
+  }, 0) || 0;
+
+  const resolutionRate = data && data.totalIssues > 0 ? Math.round((doneCount / data.totalIssues) * 100) : 0;
 
   const handleSearch = () => {
     if (inputValue.trim()) {
@@ -108,7 +119,7 @@ export const FilterStatsTab: React.FC = () => {
       {data && (
         <Space direction="vertical" size="large" style={{ width: '100%' }}>
           <Row gutter={16}>
-            <Col span={8}>
+            <Col span={6}>
               <Card>
                 <Statistic
                   title="Total Issues"
@@ -118,17 +129,28 @@ export const FilterStatsTab: React.FC = () => {
                 />
               </Card>
             </Col>
-            <Col span={8}>
+            <Col span={6}>
+              <Card>
+                <Statistic
+                  title="Resolution Rate"
+                  value={resolutionRate}
+                  prefix={<CheckCircleOutlined />}
+                  suffix="%"
+                  valueStyle={{ color: '#52c41a' }}
+                />
+              </Card>
+            </Col>
+            <Col span={6}>
               <Card>
                 <Statistic
                   title="Total Assignees"
                   value={data.assigneeStats.filter((s: any) => s.accountId !== 'unassigned').length}
                   prefix={<TeamOutlined />}
-                  valueStyle={{ color: '#52c41a' }}
+                  valueStyle={{ color: 'var(--color-primary)' }}
                 />
               </Card>
             </Col>
-            <Col span={8}>
+            <Col span={6}>
               <Card>
                 <Statistic
                   title="Unassigned Issues"
@@ -168,8 +190,130 @@ export const FilterStatsTab: React.FC = () => {
               </Card>
             </Col>
             <Col span={12}>
-              <Card title={<><AppstoreOutlined /> Issues by Module</>}>
+              <Card title={<><AppstoreOutlined /> Issues by Sub Module</>}>
                 <div style={{ height: 300, width: '100%' }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={data.subModuleStats}
+                      margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--color-border)" />
+                      <XAxis 
+                        dataKey="name" 
+                        angle={-45} 
+                        textAnchor="end" 
+                        height={80} 
+                        tick={{ fontSize: 12, fill: 'var(--color-text-muted)' }} 
+                      />
+                      <YAxis tick={{ fontSize: 12, fill: 'var(--color-text-muted)' }} allowDecimals={false} />
+                      <RechartsTooltip 
+                        cursor={{ fill: 'var(--color-surface-2)' }}
+                        contentStyle={{ borderRadius: '8px', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-surface)' }}
+                      />
+                      <Bar dataKey="count" name="Issues" radius={[4, 4, 0, 0]} fill="#8884d8">
+                        {data.subModuleStats?.map((entry: any, index: number) => (
+                          <Cell key={"cell-" + index} fill={COLORS[(index + 4) % COLORS.length]} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </Card>
+            </Col>
+          </Row>
+
+          <Row gutter={16}>
+            <Col span={8}>
+              <Card title={<><ExclamationCircleOutlined /> Issues by Priority</>}>
+                <div style={{ height: 250, width: '100%' }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={data.priorityStats}
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={75}
+                        innerRadius={45}
+                        dataKey="count"
+                        nameKey="name"
+                        label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
+                        paddingAngle={2}
+                      >
+                        {data.priorityStats?.map((entry: any, index: number) => (
+                          <Cell key={"cell-" + index} fill={COLORS[(index + 2) % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <RechartsTooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              </Card>
+            </Col>
+            <Col span={8}>
+              <Card title={<><BugOutlined /> Issues by Type</>}>
+                <div style={{ height: 250, width: '100%' }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={data.issueTypeStats}
+                      margin={{ top: 10, right: 10, left: -20, bottom: 20 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--color-border)" />
+                      <XAxis 
+                        dataKey="name" 
+                        tick={{ fontSize: 11, fill: 'var(--color-text-muted)' }} 
+                      />
+                      <YAxis tick={{ fontSize: 11, fill: 'var(--color-text-muted)' }} allowDecimals={false} />
+                      <RechartsTooltip 
+                        cursor={{ fill: 'var(--color-surface-2)' }}
+                        contentStyle={{ borderRadius: '8px', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-surface)' }}
+                      />
+                      <Bar dataKey="count" name="Issues" radius={[4, 4, 0, 0]}>
+                        {data.issueTypeStats?.map((entry: any, index: number) => (
+                          <Cell key={"cell-" + index} fill={COLORS[(index + 5) % COLORS.length]} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </Card>
+            </Col>
+            <Col span={8}>
+              <Card title={<><ClockCircleOutlined /> Issue Age Distribution</>}>
+                <div style={{ height: 250, width: '100%' }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={data.ageStats}
+                      margin={{ top: 10, right: 10, left: -20, bottom: 20 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--color-border)" />
+                      <XAxis 
+                        dataKey="name" 
+                        tick={{ fontSize: 10, fill: 'var(--color-text-muted)' }} 
+                      />
+                      <YAxis tick={{ fontSize: 11, fill: 'var(--color-text-muted)' }} allowDecimals={false} />
+                      <RechartsTooltip 
+                        cursor={{ fill: 'var(--color-surface-2)' }}
+                        contentStyle={{ borderRadius: '8px', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-surface)' }}
+                      />
+                      <Bar dataKey="count" name="Issues" radius={[4, 4, 0, 0]}>
+                        {data.ageStats?.map((entry: any, index: number) => {
+                          const AGE_COLORS = ["#10b981", "#3b82f6", "#f59e0b", "#ef4444"];
+                          return (
+                            <Cell key={"cell-" + index} fill={AGE_COLORS[index % AGE_COLORS.length]} />
+                          );
+                        })}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </Card>
+            </Col>
+          </Row>
+
+          <Row gutter={16}>
+            <Col span={12}>
+              <Card title={<><AppstoreOutlined /> Issues by Component</>}>
+                <div style={{ height: 400, width: '100%' }}>
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart
                       data={data.componentStats}
@@ -188,10 +332,48 @@ export const FilterStatsTab: React.FC = () => {
                         cursor={{ fill: 'var(--color-surface-2)' }}
                         contentStyle={{ borderRadius: '8px', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-surface)' }}
                       />
-                      <Bar dataKey="count" name="Issues" radius={[4, 4, 0, 0]} fill="#8884d8">
+                      <Bar dataKey="count" name="Issues" radius={[4, 4, 0, 0]}>
                         {data.componentStats?.map((entry: any, index: number) => (
-                          <Cell key={"cell-" + index} fill={COLORS[(index + 4) % COLORS.length]} />
+                          <Cell key={"cell-" + index} fill={COLORS[(index + 1) % COLORS.length]} />
                         ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </Card>
+            </Col>
+
+            <Col span={12}>
+              <Card title="Issues per Assignee">
+                <div style={{ height: 400, width: '100%' }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={data.assigneeStats}
+                      margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--color-border)" />
+                      <XAxis 
+                        dataKey="assignee" 
+                        angle={-45} 
+                        textAnchor="end" 
+                        height={80} 
+                        tick={{ fontSize: 12, fill: 'var(--color-text-muted)' }} 
+                      />
+                      <YAxis tick={{ fontSize: 12, fill: 'var(--color-text-muted)' }} allowDecimals={false} />
+                      <RechartsTooltip 
+                        cursor={{ fill: 'var(--color-surface-2)' }}
+                        contentStyle={{ borderRadius: '8px', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-surface)' }}
+                      />
+                      <Bar dataKey="count" name="Assigned Issues" radius={[4, 4, 0, 0]}>
+                        {data.assigneeStats.map((entry: any, index: number) => {
+                          const isUnassigned = entry.accountId === 'unassigned';
+                          return (
+                            <Cell 
+                              key={`cell-${index}`} 
+                              fill={isUnassigned ? '#faad14' : 'var(--color-primary)'} 
+                            />
+                          );
+                        })}
                       </Bar>
                     </BarChart>
                   </ResponsiveContainer>
@@ -200,56 +382,33 @@ export const FilterStatsTab: React.FC = () => {
             </Col>
           </Row>
 
-          <Card title="Issues per Assignee">
-            <div style={{ height: 400, width: '100%' }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={data.assigneeStats}
-                  margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--color-border)" />
-                  <XAxis 
-                    dataKey="assignee" 
-                    angle={-45} 
-                    textAnchor="end" 
-                    height={80} 
-                    tick={{ fontSize: 12, fill: 'var(--color-text-muted)' }} 
-                  />
-                  <YAxis tick={{ fontSize: 12, fill: 'var(--color-text-muted)' }} allowDecimals={false} />
-                  <RechartsTooltip 
-                    cursor={{ fill: 'var(--color-surface-2)' }}
-                    contentStyle={{ borderRadius: '8px', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-surface)' }}
-                  />
-                  <Bar dataKey="count" name="Assigned Issues" radius={[4, 4, 0, 0]}>
-                    {data.assigneeStats.map((entry: any, index: number) => {
-                      const isUnassigned = entry.accountId === 'unassigned';
-                      return (
-                        <Cell 
-                          key={`cell-${index}`} 
-                          fill={isUnassigned ? '#faad14' : 'var(--color-primary)'} 
-                        />
-                      );
-                    })}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </Card>
-
-          <Card title={`Filter Details: ${data.filterName || 'Unknown'} (ID: ${filterId})`}>
-            <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-              <div style={{ background: 'var(--color-surface-2)', padding: 12, borderRadius: 8, border: '1px solid var(--color-border)' }}>
-                <Text type="secondary">JQL: </Text>
-                <Text code style={{ background: 'transparent' }}>{data.jql}</Text>
-              </div>
-              
-              <Table
-                dataSource={data.assigneeStats}
-                columns={columns}
-                rowKey="accountId"
-                pagination={{ pageSize: 20 }}
+          <Card
+            title={`Filter Details: ${data.filterName || 'Unknown'} (ID: ${filterId})`}
+            extra={
+              <Button
+                type="text"
+                size="small"
+                onClick={() => setIsMinimized(!isMinimized)}
+                icon={isMinimized ? <DownOutlined /> : <UpOutlined />}
+                style={{ color: 'var(--color-text-muted)' }}
               />
-            </Space>
+            }
+          >
+            {!isMinimized && (
+              <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+                <div style={{ background: 'var(--color-surface-2)', padding: 12, borderRadius: 8, border: '1px solid var(--color-border)' }}>
+                  <Text type="secondary">JQL: </Text>
+                  <Text code style={{ background: 'transparent' }}>{data.jql}</Text>
+                </div>
+                
+                <Table
+                  dataSource={data.assigneeStats}
+                  columns={columns}
+                  rowKey="accountId"
+                  pagination={{ pageSize: 20 }}
+                />
+              </Space>
+            )}
           </Card>
         </Space>
       )}

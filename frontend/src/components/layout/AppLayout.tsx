@@ -9,12 +9,14 @@ import {
   ReloadOutlined,
   SunOutlined,
   MoonOutlined,
+  BranchesOutlined,
 } from '@ant-design/icons';
 import { useConfigStore } from '../../store/configStore';
 import { useClearCache } from '../../hooks/useJira';
 import TeamActivityTab from '../dashboard/TeamActivityTab';
 import SprintInsightsTab from '../dashboard/SprintInsightsTab';
 import ProductivityAnalyticsTab from '../dashboard/ProductivityAnalyticsTab';
+import GitlabActivityTab from '../dashboard/GitlabActivityTab';
 import ConfigModal from '../config/ConfigModal';
 import StatusIndicator from '../shared/StatusIndicator';
 import { ActivityFilters } from '../../types';
@@ -49,14 +51,17 @@ export default function AppLayout() {
   const { isConfigured, trackedUsers, jiraConfig, theme, setTheme } = useConfigStore();
   const clearCache = useClearCache();
 
-  // Lifted Activity Filters state (defaulting to today/current date only)
+  // Lifted Activity Filters state (defaulting to current week Monday - Today)
   const [filters, setFilters] = useState<ActivityFilters>(() => {
-    const today = dayjs().format('YYYY-MM-DD');
+    const today = dayjs();
+    const dayOfWeek = today.day();
+    const monday = today.subtract(dayOfWeek === 0 ? 6 : dayOfWeek - 1, 'day').format('YYYY-MM-DD');
+    const todayStr = today.format('YYYY-MM-DD');
     return {
-      startDate: today,
-      endDate: today,
+      startDate: monday,
+      endDate: todayStr,
       startTime: '00:00',
-      endTime: '23:59',
+      endTime: today.format('HH:mm'),
       userIds: [],
       projectKeys: [],
       issueTypes: [],
@@ -92,6 +97,14 @@ export default function AppLayout() {
       icon: <FileTextOutlined />,
       component: <FilterStatsTab />,
       disabled: false,
+    },
+    {
+      key: 'gitlab',
+      label: 'GitLab Activity',
+      icon: <BranchesOutlined />,
+      component: <GitlabActivityTab filters={filters} />,
+      disabled: false,
+      badge: 'Beta',
     },
     {
       key: 'reports',

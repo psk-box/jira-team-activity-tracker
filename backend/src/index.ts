@@ -7,6 +7,7 @@ import dotenv from 'dotenv';
 import { logger } from './services/logger';
 import jiraRoutes from './routes/jira';
 import configRoutes from './routes/config';
+import gitlabRoutes from './routes/gitlab';
 import { errorHandler } from './middleware/errorHandler';
 import { requestLogger } from './middleware/requestLogger';
 
@@ -46,6 +47,7 @@ app.get('/health', (_req, res) => {
 // API Routes
 app.use('/api/jira', jiraRoutes);
 app.use('/api/config', configRoutes);
+app.use('/api/gitlab', gitlabRoutes);
 
 // Error handler (must be last)
 app.use(errorHandler);

@@ -65,6 +65,8 @@ export interface TrackedUser {
   displayName: string;
   emailAddress: string;
   avatarUrl: string;
+  gitlabUsername?: string;
+  gitlabEmail?: string;
 }
 
 export interface AppConfig {
@@ -102,4 +104,80 @@ export interface AppTab {
   component: React.ComponentType;
   disabled?: boolean;
   badge?: string;
+}
+
+// ─── GitLab Types ─────────────────────────────────────────────────────────────
+
+export interface GitlabConfig {
+  baseUrl: string;
+  token: string;
+}
+
+export interface GitlabActivityEvent {
+  id: string;
+  title: string;
+  action: 'commit' | 'push' | 'mr_opened' | 'mr_merged' | 'mr_closed' | 'issue_opened' | 'issue_closed' | 'comment' | 'mr_comment' | 'issue_comment';
+  projectPath: string;
+  branchName?: string;
+  targetUrl?: string;
+  timestamp: string;
+  authorId: string;
+  authorName: string;
+  details?: string;
+}
+
+export interface GitlabPipelineRun {
+  id: string;
+  projectName: string;
+  status: 'success' | 'failed' | 'running' | 'canceled';
+  durationSeconds: number;
+  ref: string;
+  commitTitle: string;
+  timestamp: string;
+}
+
+export interface GitlabUserActivity {
+  userId: string;
+  displayName: string;
+  gitlabUsername: string;
+  avatarUrl: string;
+  totalActivities: number;
+  commits: number;
+  pushes: number;
+  mrsOpened: number;
+  mrsMerged: number;
+  mrsClosed: number;
+  issuesOpened: number;
+  issuesClosed: number;
+  comments: number;
+  mrComments: number;
+  issueComments: number;
+  events: GitlabActivityEvent[];
+}
+
+export interface GitlabSummary {
+  totalCommits: number;
+  totalPushes: number;
+  totalMRs: number;
+  totalMRComments: number;
+  activeBranchesCount: number;
+  pipelineSuccessRate: number;
+  avgPipelineDuration: number;
+  activityByDate: { date: string; commits: number; pushes: number; mrs: number; comments: number }[];
+  activityByUser: {
+    gitlabUsername: string;
+    displayName: string;
+    commits: number;
+    pushes: number;
+    mrs: number;
+    mrComments: number;
+    total: number;
+  }[];
+}
+
+export interface GitlabActivityResponse {
+  activities: GitlabUserActivity[];
+  pipelines: GitlabPipelineRun[];
+  summary: GitlabSummary;
+  isMock: boolean;
 }

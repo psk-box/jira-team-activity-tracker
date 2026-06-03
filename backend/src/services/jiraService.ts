@@ -411,6 +411,9 @@ export class JiraService {
         const activityType =
           item.field === "status" ? "status_change" : "field_update";
 
+        const toStringVal = (item.toString !== null && item.toString !== undefined && typeof item.toString !== "function") ? String(item.toString) : "";
+        const fromStringVal = (item.fromString !== null && item.fromString !== undefined && typeof item.fromString !== "function") ? String(item.fromString) : "";
+
         const event: ActivityEvent = {
           issueKey: issue.key,
           issueSummary: issue.fields.summary,
@@ -420,8 +423,8 @@ export class JiraService {
           timestamp: history.created,
           detail:
             item.field === "status"
-              ? `${item.fromString} → ${item.toString}`
-              : `Updated ${item.field}: ${item.toString || "(cleared)"}`,
+              ? `${fromStringVal || "(empty)"} → ${toStringVal || "(empty)"}`
+              : `Updated ${item.field}: ${toStringVal || "(cleared)"}`,
           userId: history.author.accountId,
         };
 
@@ -546,10 +549,17 @@ export class JiraService {
       let startAt = 0;
       const maxResults = 100;
 
+      const subModuleFieldId = await this.getSubModuleFieldId();
+      const fieldsList = ["assignee", "status", "components", "priority", "issuetype", "created", "resolution"];
+      if (subModuleFieldId) {
+        fieldsList.push(subModuleFieldId);
+      }
+      const fieldsStr = fieldsList.join(",");
+
       if (this.apiVersion === "3") {
          let nextPageToken: string | undefined;
          do {
-            const params: any = { jql, maxResults, fields: "assignee,status,components" };
+            const params: any = { jql, maxResults, fields: fieldsStr };
             if (nextPageToken) params.nextPageToken = nextPageToken;
             const res = await this.client.get("/search/jql", { params });
             allIssues.push(...(res.data.issues || []));
@@ -558,7 +568,7 @@ export class JiraService {
       } else {
          while (true) {
             const res = await this.client.get("/search", {
-               params: { jql, startAt, maxResults, fields: "assignee,status,components" }
+               params: { jql, startAt, maxResults, fields: fieldsStr }
             });
             const issues = res.data.issues || [];
             allIssues.push(...issues);
@@ -570,6 +580,18 @@ export class JiraService {
       const assigneeStats = new Map<string, { user: JiraUser | null, count: number }>();
       const statusStats = new Map<string, number>();
       const componentStats = new Map<string, number>();
+      const subModuleStats = new Map<string, number>();
+      const priorityStats = new Map<string, number>();
+      const issueTypeStats = new Map<string, number>();
+      const ageStats = new Map<string, number>();
+
+      // Initialize age categories to maintain display order
+      ageStats.set("New (< 7d)", 0);
+      ageStats.set("Recent (7-30d)", 0);
+      ageStats.set("Stagnant (30-90d)", 0);
+      ageStats.set("Stale (> 90d)", 0);
+
+      const now = new Date();
 
       for (const issue of allIssues) {
         const assignee = issue.fields?.assignee || null;
@@ -592,6 +614,45 @@ export class JiraService {
             componentStats.set(compName, (componentStats.get(compName) || 0) + 1);
           }
         }
+
+        // Sub Module custom field
+        let subModules: string[] = [];
+        if (subModuleFieldId && issue.fields) {
+          const rawVal = issue.fields[subModuleFieldId];
+          subModules = this.extractCustomFieldValue(rawVal);
+        }
+        if (subModules.length === 0) {
+          subModuleStats.set('No Sub Module', (subModuleStats.get('No Sub Module') || 0) + 1);
+        } else {
+          for (const subMod of subModules) {
+            subModuleStats.set(subMod, (subModuleStats.get(subMod) || 0) + 1);
+          }
+        }
+
+        // Priority
+        const priorityName = issue.fields?.priority?.name || 'None';
+        priorityStats.set(priorityName, (priorityStats.get(priorityName) || 0) + 1);
+
+        // Issue Type
+        const typeName = issue.fields?.issuetype?.name || 'Unknown';
+        issueTypeStats.set(typeName, (issueTypeStats.get(typeName) || 0) + 1);
+
+        // Issue Age
+        const createdStr = issue.fields?.created;
+        if (createdStr) {
+          const createdDate = new Date(createdStr);
+          const diffMs = now.getTime() - createdDate.getTime();
+          const diffDays = diffMs / (1000 * 60 * 60 * 24);
+          if (diffDays < 7) {
+            ageStats.set("New (< 7d)", (ageStats.get("New (< 7d)") || 0) + 1);
+          } else if (diffDays < 30) {
+            ageStats.set("Recent (7-30d)", (ageStats.get("Recent (7-30d)") || 0) + 1);
+          } else if (diffDays < 90) {
+            ageStats.set("Stagnant (30-90d)", (ageStats.get("Stagnant (30-90d)") || 0) + 1);
+          } else {
+            ageStats.set("Stale (> 90d)", (ageStats.get("Stale (> 90d)") || 0) + 1);
+          }
+        }
       }
 
       const statsArray = Array.from(assigneeStats.values()).map(stat => ({
@@ -604,6 +665,10 @@ export class JiraService {
 
       const statusArray = Array.from(statusStats.entries()).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count);
       const componentArray = Array.from(componentStats.entries()).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count);
+      const subModuleArray = Array.from(subModuleStats.entries()).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count);
+      const priorityArray = Array.from(priorityStats.entries()).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count);
+      const issueTypeArray = Array.from(issueTypeStats.entries()).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count);
+      const ageArray = Array.from(ageStats.entries()).map(([name, count]) => ({ name, count }));
 
       return {
         filterName: filterRes.data.name,
@@ -611,7 +676,11 @@ export class JiraService {
         totalIssues: allIssues.length,
         assigneeStats: statsArray,
         statusStats: statusArray,
-        componentStats: componentArray
+        componentStats: componentArray,
+        subModuleStats: subModuleArray,
+        priorityStats: priorityArray,
+        issueTypeStats: issueTypeArray,
+        ageStats: ageArray
       };
     } catch (err: any) {
       logger.error("Failed to fetch filter stats", { filterId, message: err.message });
@@ -637,6 +706,44 @@ export class JiraService {
   }
 
   // ─── Helpers ────────────────────────────────────────────────────────────────
+
+  private extractCustomFieldValue(fieldVal: any): string[] {
+    if (!fieldVal) return [];
+    if (typeof fieldVal === 'string') return [fieldVal];
+    if (Array.isArray(fieldVal)) {
+      return fieldVal.flatMap(item => this.extractCustomFieldValue(item));
+    }
+    if (typeof fieldVal === 'object') {
+      if (fieldVal.value) return [fieldVal.value];
+      if (fieldVal.name) return [fieldVal.name];
+    }
+    return [];
+  }
+
+  private async getSubModuleFieldId(): Promise<string | null> {
+    const cacheKey = "sub_module_field_id";
+    const cached = cache.get<string | null>(cacheKey);
+    if (cached !== undefined) return cached;
+
+    try {
+      logger.info("Fetching fields from Jira to identify Sub Module field ID");
+      const res = await this.client.get<any[]>("/field");
+      const fields = res.data || [];
+      
+      const targetNames = ["sub module", "sub-module", "submodule"];
+      const matchedField = fields.find(f => 
+        f.name && targetNames.includes(f.name.toLowerCase())
+      );
+      
+      const fieldId = matchedField ? matchedField.id : null;
+      logger.info("Sub Module field ID resolved", { fieldId, name: matchedField?.name });
+      cache.set(cacheKey, fieldId, 3600); // cache for 1 hour
+      return fieldId;
+    } catch (err: any) {
+      logger.warn("Failed to fetch fields from Jira to identify Sub Module field ID", { message: err.message });
+      return null;
+    }
+  }
 
   private getLocalDateString(dateStr: string): string {
     const d = new Date(dateStr);

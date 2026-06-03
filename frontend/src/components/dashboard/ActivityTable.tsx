@@ -3,7 +3,7 @@ import { Table, Avatar, Space, Tag, Typography, Timeline, Button, Tooltip, Input
 import type { ColumnsType } from 'antd/es/table';
 import {
   SwapOutlined, EditOutlined, CommentOutlined, ClockCircleOutlined,
-  DownloadOutlined, FileExcelOutlined, SearchOutlined,
+  DownloadOutlined, FileExcelOutlined, SearchOutlined, UpOutlined, DownOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { AggregatedUserActivity, ActivityEvent, ActivityFilters } from '../../types';
@@ -293,10 +293,15 @@ interface Props {
   data: AggregatedUserActivity[];
   loading: boolean;
   filters: ActivityFilters;
+  isMinimized?: boolean;
+  onMinimizeToggle?: () => void;
 }
 
-export default function ActivityTable({ data, loading, filters }: Props) {
+export default function ActivityTable({ data, loading, filters, isMinimized, onMinimizeToggle }: Props) {
   const [searchText, setSearchText] = useState('');
+  const [localMinimized, setLocalMinimized] = useState(false);
+  const minimized = isMinimized !== undefined ? isMinimized : localMinimized;
+  const toggleMinimized = onMinimizeToggle ? onMinimizeToggle : () => setLocalMinimized(!localMinimized);
 
   // Filter data by search text
   const filteredData = filterBySearch(data, searchText);
@@ -521,46 +526,62 @@ export default function ActivityTable({ data, loading, filters }: Props) {
               >
                 Excel
               </Button>
+              <Button
+                size="small"
+                onClick={toggleMinimized}
+                icon={minimized ? <DownOutlined /> : <UpOutlined />}
+                style={{
+                  background: 'var(--color-surface-2)',
+                  border: '1px solid var(--color-border)',
+                  color: 'var(--color-text-muted)',
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: 11,
+                }}
+              >
+                {minimized ? 'Expand' : 'Collapse'}
+              </Button>
             </Space>
           </Col>
         </Row>
       </div>
 
-      <Table<GroupedUserData>
-        dataSource={groupedData}
-        columns={columns}
-        expandable={expandable}
-        rowKey={(r) => r.userId}
-        loading={loading}
-        scroll={{ x: 860 }}
-        pagination={{
-          pageSize: 20,
-          showSizeChanger: true,
-          pageSizeOptions: ['10', '20', '50', '100'],
-          showTotal: (total) => (
-            <Text style={{
-              fontFamily: 'var(--font-mono)',
-              fontSize: 11,
-              color: 'var(--color-text-muted)',
-            }}>
-              {total} records
-            </Text>
-          ),
-          style: { padding: '12px 20px' },
-        }}
-        locale={{
-          emptyText: (
-            <div style={{
-              padding: '48px 0',
-              textAlign: 'center',
-              color: 'var(--color-text-muted)',
-              fontFamily: 'var(--font-mono)',
-            }}>
-              {loading ? 'Fetching changelog data from Jira…' : 'No activity found for the selected filters.'}
-            </div>
-          ),
-        }}
-      />
+      {!minimized && (
+        <Table<GroupedUserData>
+          dataSource={groupedData}
+          columns={columns}
+          expandable={expandable}
+          rowKey={(r) => r.userId}
+          loading={loading}
+          scroll={{ x: 860 }}
+          pagination={{
+            pageSize: 20,
+            showSizeChanger: true,
+            pageSizeOptions: ['10', '20', '50', '100'],
+            showTotal: (total) => (
+              <Text style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: 11,
+                color: 'var(--color-text-muted)',
+              }}>
+                {total} records
+              </Text>
+            ),
+            style: { padding: '12px 20px' },
+          }}
+          locale={{
+            emptyText: (
+              <div style={{
+                padding: '48px 0',
+                textAlign: 'center',
+                color: 'var(--color-text-muted)',
+                fontFamily: 'var(--font-mono)',
+              }}>
+                {loading ? 'Fetching changelog data from Jira…' : 'No activity found for the selected filters.'}
+              </div>
+            ),
+          }}
+        />
+      )}
     </div>
   );
 }

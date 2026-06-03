@@ -29,25 +29,66 @@ export default function FiltersBar({ filters, onChange }: Props) {
   const { trackedUsers } = useConfigStore();
   const { data: projects = [] } = useProjects();
 
+  const disabledTime = (current: any, type: 'start' | 'end') => {
+    if (current && current.isSame(dayjs(), 'day')) {
+      const now = dayjs();
+      return {
+        disabledHours: () => {
+          const hours = [];
+          for (let i = now.hour() + 1; i < 24; i++) {
+            hours.push(i);
+          }
+          return hours;
+        },
+        disabledMinutes: (selectedHour: number) => {
+          const minutes = [];
+          if (selectedHour === now.hour()) {
+            for (let i = now.minute() + 1; i < 60; i++) {
+              minutes.push(i);
+            }
+          } else if (selectedHour > now.hour()) {
+            for (let i = 0; i < 60; i++) {
+              minutes.push(i);
+            }
+          }
+          return minutes;
+        },
+      };
+    }
+    return {};
+  };
+
   const handleDateChange = (dates: any) => {
     if (dates && dates[0] && dates[1]) {
+      const now = dayjs();
+      let start = dates[0];
+      let end = dates[1];
+      if (start.isAfter(now)) {
+        start = now;
+      }
+      if (end.isAfter(now)) {
+        end = now;
+      }
       onChange({
         ...filters,
-        startDate: dates[0].format('YYYY-MM-DD'),
-        endDate: dates[1].format('YYYY-MM-DD'),
-        startTime: dates[0].format('HH:mm'),
-        endTime: dates[1].format('HH:mm'),
+        startDate: start.format('YYYY-MM-DD'),
+        endDate: end.format('YYYY-MM-DD'),
+        startTime: start.format('HH:mm'),
+        endTime: end.format('HH:mm'),
       });
     }
   };
 
   const handleReset = () => {
-    const today = dayjs().format('YYYY-MM-DD');
+    const today = dayjs();
+    const dayOfWeek = today.day();
+    const monday = today.subtract(dayOfWeek === 0 ? 6 : dayOfWeek - 1, 'day').format('YYYY-MM-DD');
+    const todayStr = today.format('YYYY-MM-DD');
     onChange({
-      startDate: today,
-      endDate: today,
+      startDate: monday,
+      endDate: todayStr,
       startTime: '00:00',
-      endTime: '23:59',
+      endTime: today.format('HH:mm'),
       userIds: [],
       projectKeys: [],
       issueTypes: [],
@@ -89,7 +130,6 @@ export default function FiltersBar({ filters, onChange }: Props) {
             </Text>
           </Space>
         </Col>
-
         <Col flex="none">
           <RangePicker
             value={[
@@ -107,10 +147,10 @@ export default function FiltersBar({ filters, onChange }: Props) {
               fontSize: 12,
             }}
             allowClear={false}
-            disabledDate={(d) => d.isAfter(dayjs())}
+            disabledDate={(d) => d && d.isAfter(dayjs(), 'day')}
+            disabledTime={(current, type) => disabledTime(current, type)}
           />
         </Col>
-
         <Col flex="auto">
           <Row gutter={[8, 8]}>
             <Col xs={24} sm={12} md={6}>
