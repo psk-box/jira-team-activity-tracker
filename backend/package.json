@@ -2,11 +2,10 @@
   "name": "jira-tracker-backend",
   "version": "1.0.0",
   "description": "Backend proxy for Jira Team Activity Tracker",
-  "main": "dist/index.js",
+  "main": "src/index.js",
   "scripts": {
-    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
-    "build": "tsc",
-    "start": "node dist/index.js"
+    "dev": "node --watch src/index.js",
+    "start": "node src/index.js"
   },
   "dependencies": {
     "axios": "^1.6.0",
@@ -19,13 +18,5 @@
     "node-cache": "^5.1.2",
     "winston": "^3.11.0",
     "zod": "^3.22.4"
-  },
-  "devDependencies": {
-    "@types/compression": "^1.7.5",
-    "@types/cors": "^2.8.17",
-    "@types/express": "^4.17.21",
-    "@types/node": "^20.10.0",
-    "ts-node-dev": "^2.0.0",
-    "typescript": "^5.3.2"
   }
 }
