@@ -111,9 +111,8 @@ export class GitlabService {
         name: res.data.name,
       };
     } catch (err: any) {
-      logger.error("GitLab validation failed, falling back to mock mode", err.message);
-      this.isMockMode = true;
-      return { username: "mock.admin", name: "Mock GitLab Administrator (Fallback)" };
+      logger.error("GitLab validation failed", err.message);
+      throw new Error(err.message || "GitLab validation failed");
     }
   }
 
@@ -301,8 +300,13 @@ export class GitlabService {
         isMock: false,
       };
     } catch (err: any) {
-      logger.error("Failed to query GitLab API, shifting to simulation mode", err.message);
-      return this.generateMockActivity(users, startDate, endDate);
+      if (this.isMockMode) {
+        logger.info("Falling back to simulated activity data");
+        return this.generateMockActivity(users, startDate, endDate);
+      } else {
+        logger.error("Failed to query GitLab API", err.message);
+        throw new Error(`GitLab API query failed: ${err.message}`);
+      }
     }
   }
 
