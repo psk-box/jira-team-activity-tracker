@@ -74,7 +74,7 @@ function isCacheValid(timestamp: number): boolean {
 }
 
 export function useActivity(filters: ActivityFilters) {
-  const { jiraConfig, trackedUsers } = useConfigStore();
+  const { jiraConfig, trackedUsers, excludedDays } = useConfigStore();
 
   const userIds = filters.userIds.length > 0
     ? filters.userIds
@@ -88,11 +88,13 @@ export function useActivity(filters: ActivityFilters) {
   const query = useQuery({
     queryKey: ['activity', userIds, filters.startDate, filters.endDate,
       filters.startTime, filters.endTime,
-      filters.projectKeys, filters.issueTypes, filters.activityTypes],
+      filters.projectKeys, filters.issueTypes, filters.activityTypes,
+      excludedDays],
     queryFn: () => fetchActivity(jiraConfig!, {
       ...filters,
       userIds,
       targetDate: today,
+      excludedDays,
     }),
     enabled: !!jiraConfig?.apiToken && userIds.length > 0,
     staleTime: CACHE_TTL,

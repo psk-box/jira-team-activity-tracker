@@ -80,7 +80,8 @@ function aggregateActivities(activityMap, userMap) {
  * @param {string}   [targetDate]
  * @returns {object}
  */
-function buildDashboardSummary(activities, targetDate) {
+function buildDashboardSummary(activities, targetDate, excludedDays) {
+  const excluded = new Set(excludedDays !== undefined ? excludedDays : [0, 6]);
   const today = targetDate || new Date().toISOString().substring(0, 10);
   const todayActivities = activities.filter(a => a.date === today);
 
@@ -113,9 +114,11 @@ function buildDashboardSummary(activities, targetDate) {
     activityByType.worklog += activity.worklogs;
   }
 
-  // Activity by date
+  // Activity by date (configurable working days only)
   const dateMap = new Map();
   for (const activity of activities) {
+    const dow = new Date(activity.date + 'T00:00:00').getDay();
+    if (excluded.has(dow)) continue;
     dateMap.set(activity.date, (dateMap.get(activity.date) || 0) + activity.totalActivities);
   }
   const activityByDate = Array.from(dateMap.entries())
@@ -168,10 +171,11 @@ function buildDashboardSummary(activities, targetDate) {
  * Filters aggregated activities based on given criteria.
  *
  * @param {object[]} activities
- * @param {{ userIds?: string[], projectKeys?: string[], issueTypes?: string[], activityTypes?: string[], startDate?: string, endDate?: string }} filters
+ * @param {{ userIds?: string[], projectKeys?: string[], issueTypes?: string[], activityTypes?: string[], startDate?: string, endDate?: string, excludedDays?: number[] }} filters
  * @returns {object[]}
  */
 function filterActivities(activities, filters) {
+  const excluded = new Set(filters.excludedDays !== undefined ? filters.excludedDays : [0, 6]);
   return activities
     .map(activity => {
       let events = activity.events;
@@ -210,6 +214,9 @@ function filterActivities(activities, filters) {
       if (filters.userIds && filters.userIds.length && !filters.userIds.includes(a.userId)) return false;
       if (filters.startDate && a.date < filters.startDate) return false;
       if (filters.endDate && a.date > filters.endDate) return false;
+      // Exclude configured days
+      const dow = new Date(a.date + 'T00:00:00').getDay();
+      if (excluded.has(dow)) return false;
       return true;
     });
 }

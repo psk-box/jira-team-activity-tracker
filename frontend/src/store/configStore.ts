@@ -10,6 +10,8 @@ interface ConfigStore {
   isGitlabConfigured: boolean;
   theme: 'light' | 'dark';
   worklogGoalHours: number;
+  /** Day-of-week numbers to exclude from metrics. 0 = Sunday … 6 = Saturday */
+  excludedDays: number[];
 
   setJiraConfig: (config: JiraConfig) => void;
   clearJiraConfig: () => void;
@@ -21,6 +23,7 @@ interface ConfigStore {
   setTrackedUsers: (users: TrackedUser[]) => void;
   setTheme: (theme: 'light' | 'dark') => void;
   setWorklogGoalHours: (hours: number) => void;
+  setExcludedDays: (days: number[]) => void;
 }
 
 export const useConfigStore = create<ConfigStore>()(
@@ -33,6 +36,7 @@ export const useConfigStore = create<ConfigStore>()(
       isGitlabConfigured: false,
       theme: 'dark',
       worklogGoalHours: 8,
+      excludedDays: [0, 6],
 
       setJiraConfig: (config) => {
         set({ jiraConfig: config, isConfigured: true });
@@ -82,6 +86,10 @@ export const useConfigStore = create<ConfigStore>()(
       setWorklogGoalHours: (hours) => {
         set({ worklogGoalHours: hours });
       },
+
+      setExcludedDays: (days) => {
+        set({ excludedDays: days });
+      },
     }),
     {
       name: 'jira-tracker-config',
@@ -94,6 +102,7 @@ export const useConfigStore = create<ConfigStore>()(
         isGitlabConfigured: state.isGitlabConfigured,
         theme: state.theme,
         worklogGoalHours: state.worklogGoalHours,
+        excludedDays: state.excludedDays,
       }),
     }
   )

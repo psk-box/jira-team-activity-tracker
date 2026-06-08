@@ -103,11 +103,12 @@ class JiraService {
 
   // ─── Fetch Activity for Users and Date Range ─────────────────────────────────
 
-  async fetchUserActivity(userIds, startDate, endDate, projectKeys, startTime, endTime) {
+  async fetchUserActivity(userIds, startDate, endDate, projectKeys, startTime, endTime, excludedDays) {
     const startTimeStr = startTime || '00:00';
     const endTimeStr = endTime || '23:59';
+    const excludedDaysArr = excludedDays || [0, 6];
 
-    const cacheKeyForQuery = `activity_${startDate}_${startTimeStr}_${endDate}_${endTimeStr}_${(projectKeys || []).join('_')}`;
+    const cacheKeyForQuery = `activity_${startDate}_${startTimeStr}_${endDate}_${endTimeStr}_${(projectKeys || []).join('_')}_excl${excludedDaysArr.join('-')}`;
     const cachedResult = cache.get(cacheKeyForQuery);
     if (cachedResult) {
       logger.info('Returning cached activity result', { startDate, startTime: startTimeStr, endDate, endTime: endTimeStr, cacheKey: cacheKeyForQuery });
@@ -131,7 +132,7 @@ class JiraService {
 
     const activityMap = new Map();
     const userSet = new Set(userIds);
-    const dateRange = this._getDateRange(startDate, endDate);
+    const dateRange = this._getDateRange(startDate, endDate, excludedDaysArr);
 
     for (const issue of allIssues) {
       this._processIssueActivity(issue, userSet, dateRange, activityMap);
@@ -618,14 +619,15 @@ class JiraService {
     return `${year}-${month}-${day}`;
   }
 
-  _getDateRange(startDate, endDate) {
-    const dates = new Set();
+  _getDateRange(startDate, endDate, excludedDays) {
+    const excluded = new Set(excludedDays !== undefined ? excludedDays : [0, 6]);
 
     const [startYear, startMonth, startDay] = startDate.split('-').map(Number);
     const [endYear, endMonth, endDay] = endDate.split('-').map(Number);
 
     const current = new Date(startYear, startMonth - 1, startDay);
     const end = new Date(endYear, endMonth - 1, endDay);
+    const dates = new Set();
 
     const tzInfo = {
       inputStartDate: startDate,
@@ -637,10 +639,13 @@ class JiraService {
     console.log('[DEBUG] getDateRange:', JSON.stringify(tzInfo));
 
     while (current <= end) {
-      const year = current.getFullYear();
-      const month = String(current.getMonth() + 1).padStart(2, '0');
-      const day = String(current.getDate()).padStart(2, '0');
-      dates.add(`${year}-${month}-${day}`);
+      const dayOfWeek = current.getDay();
+      if (!excluded.has(dayOfWeek)) {
+        const year = current.getFullYear();
+        const month = String(current.getMonth() + 1).padStart(2, '0');
+        const day = String(current.getDate()).padStart(2, '0');
+        dates.add(`${year}-${month}-${day}`);
+      }
       current.setDate(current.getDate() + 1);
     }
 

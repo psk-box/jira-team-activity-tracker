@@ -26,6 +26,10 @@ const activityQuerySchema = z.object({
   issueTypes: z.string().optional().transform(s => (s ? s.split(',').filter(Boolean) : [])),
   activityTypes: z.string().optional().transform(s => (s ? s.split(',').filter(Boolean) : [])),
   targetDate: z.string().optional(),
+  /** Comma-separated day-of-week numbers to exclude (0=Sun … 6=Sat) */
+  excludedDays: z.string().optional().transform(s =>
+    s ? s.split(',').map(Number).filter(n => !isNaN(n) && n >= 0 && n <= 6) : [0, 6]
+  ),
 });
 
 // ─── Helper: Get config from request headers ──────────────────────────────────
@@ -122,7 +126,8 @@ router.get('/activity', async (req, res, next) => {
       filters.endDate,
       filters.projectKeys,
       filters.startTime,
-      filters.endTime
+      filters.endTime,
+      filters.excludedDays
     );
 
     // Aggregate into per-user-per-day summaries
@@ -136,10 +141,11 @@ router.get('/activity', async (req, res, next) => {
       activityTypes: filters.activityTypes,
       startDate: filters.startDate,
       endDate: filters.endDate,
+      excludedDays: filters.excludedDays,
     });
 
     // Build summary statistics
-    const summary = buildDashboardSummary(activities, filters.targetDate);
+    const summary = buildDashboardSummary(activities, filters.targetDate, filters.excludedDays);
 
     res.json({ activities, summary });
   } catch (err) {

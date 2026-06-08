@@ -474,13 +474,30 @@ function GitlabConnectionTab() {
 
 // ─── Activity Goals Tab ──────────────────────────────────────────────────────
 
+const ALL_DAYS = [
+  { label: 'Sun', value: 0 },
+  { label: 'Mon', value: 1 },
+  { label: 'Tue', value: 2 },
+  { label: 'Wed', value: 3 },
+  { label: 'Thu', value: 4 },
+  { label: 'Fri', value: 5 },
+  { label: 'Sat', value: 6 },
+];
+
 function GoalsTab() {
-  const { worklogGoalHours, setWorklogGoalHours } = useConfigStore();
+  const { worklogGoalHours, setWorklogGoalHours, excludedDays, setExcludedDays } = useConfigStore();
   const [hours, setHours] = useState(worklogGoalHours);
 
   const handleSave = () => {
     setWorklogGoalHours(hours);
     message.success(`Daily worklog goal updated to ${hours} hours`);
+  };
+
+  const toggleDay = (day: number) => {
+    const next = excludedDays.includes(day)
+      ? excludedDays.filter(d => d !== day)   // un-exclude → include
+      : [...excludedDays, day];               // exclude
+    setExcludedDays(next);
   };
 
   return (
@@ -499,6 +516,61 @@ function GoalsTab() {
           </Text>
         </Space>
       </div>
+
+      {/* Working Days */}
+      <div style={{ marginBottom: 24 }}>
+        <Text style={{
+          display: 'block',
+          fontFamily: 'var(--font-mono)',
+          fontSize: 11,
+          color: 'var(--color-text-muted)',
+          letterSpacing: '0.08em',
+          textTransform: 'uppercase',
+          marginBottom: 10,
+        }}>
+          Working Days
+        </Text>
+        <Text style={{ fontSize: 12, color: 'var(--color-text-muted)', display: 'block', marginBottom: 12 }}>
+          Click to toggle which days count toward metrics. Greyed-out days are excluded.
+        </Text>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {ALL_DAYS.map(({ label, value }) => {
+            const isExcluded = excludedDays.includes(value);
+            return (
+              <button
+                key={value}
+                onClick={() => toggleDay(value)}
+                style={{
+                  flex: 1,
+                  padding: '8px 0',
+                  borderRadius: 'var(--radius)',
+                  border: isExcluded
+                    ? '1px solid var(--color-border)'
+                    : '1px solid var(--color-primary)',
+                  background: isExcluded
+                    ? 'var(--color-surface-2)'
+                    : 'var(--color-primary-dim)',
+                  color: isExcluded ? 'var(--color-text-muted)' : 'var(--color-primary)',
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: 11,
+                  fontWeight: isExcluded ? 400 : 700,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                  textDecoration: isExcluded ? 'line-through' : 'none',
+                  opacity: isExcluded ? 0.5 : 1,
+                }}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+        <Text style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 8, display: 'block' }}>
+          Active: {ALL_DAYS.filter(d => !excludedDays.includes(d.value)).map(d => d.label).join(', ') || 'None'}
+        </Text>
+      </div>
+
+      <Divider style={{ borderColor: 'var(--color-border)', margin: '0 0 20px' }} />
 
       <Form layout="vertical" onFinish={handleSave}>
         <Form.Item

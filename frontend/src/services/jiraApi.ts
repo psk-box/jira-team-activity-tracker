@@ -57,7 +57,7 @@ export async function getJiraProjects(
 
 export async function fetchActivity(
   config: JiraConfig,
-  filters: ActivityFilters & { targetDate?: string }
+  filters: ActivityFilters & { targetDate?: string; excludedDays?: number[] }
 ): Promise<ActivityResponse> {
   const client = createApiClient(config);
   const response = await client.get<ActivityResponse>('/activity', {
@@ -71,6 +71,7 @@ export async function fetchActivity(
       issueTypes: filters.issueTypes?.join(',') || '',
       activityTypes: filters.activityTypes?.join(',') || '',
       targetDate: filters.targetDate,
+      excludedDays: (filters.excludedDays ?? [0, 6]).join(','),
     },
   });
   return response.data;
